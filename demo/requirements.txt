@@ -1,0 +1,9 @@
+# If you just want all dependencies for all the demos
+fire
+sentence_transformers
+asyncpg
+pgvector
+toolio
+docx2python
+PyPDF2
+PyCryptodome

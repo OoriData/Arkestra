@@ -1,0 +1,153 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "Arkestra"
+dynamic = ["version"]
+description = "Tools for supporting very simple orchestration for AI workload, inspired by UNIX pipes, but with a Pythonic bent"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+keywords = []
+authors = [
+  { name = "Uche Ogbuji", email = "uche@ogbuji.net" },
+  # { name = "Osi Ogbuji", email = "osita@ogbuji.net" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "ogbujipt",
+]
+
+[project.urls]
+Documentation = "https://github.com/OoriData/Arkestra#readme"
+Issues = "https://github.com/OoriData/Arkestra/issues"
+Source = "https://github.com/OoriData/Arkestra"
+
+[tool.hatch.version]
+path = "pylib/__about__.py"
+
+# Rewriting path in distribution
+[tool.hatch.build.sources]
+"pylib" = "arkestra"
+"resources" = "arkestra/resources"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["pylib", "resources"]
+
+[tool.hatch.build.targets.wheel.sources]
+"pylib" = "arkestra"
+"resources" = "arkestra/resources"
+
+# Hatch environemnts are too fiddly. For example, from `hatch run test` I get 
+# ModuleNotFoundError: No module named 'arkestra'
+# This may well have to do with my rewriting path in distribution,
+# But I'm not compromising on that, so I guess just install & use
+# e.g. pytest directly (tried dev-mode false, but no difference)
+[tool.hatch.envs.default]
+dependencies = [
+  "coverage[toml]>=6.5",
+  "pytest",
+  "pytest-mock",
+  "pytest-httpx",
+  "pytest-asyncio",
+]
+dev-mode = false
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:test}"
+test-cov = "coverage run -m pytest {args:test}"
+cov-report = [
+  "- coverage combine",
+  "coverage report",
+]
+cov = [
+  "test-cov",
+  "cov-report",
+]
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.10", "3.11", "3.12"]
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+  "black>=23.1.0",
+  "mypy>=1.0.0",
+  "ruff>=0.0.243",
+]
+[tool.hatch.envs.lint.scripts]
+typing = "mypy --install-types --non-interactive {args:pylib/arkestra test}"
+style = [
+  "ruff {args:.}",
+  "black --check --diff {args:.}",
+]
+fmt = [
+  "black {args:.}",
+  "ruff --fix {args:.}",
+  "style",
+]
+all = [
+  "style",
+  "typing",
+]
+
+[tool.black]
+target-version = ["py310"]
+line-length = 120
+skip-string-normalization = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+lint.select = ["E", "F"]
+lint.ignore = [
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
+  # Ignore checks for possible passwords
+  "S105", "S106", "S107",
+  # Ignore complexity
+  "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+]
+lint.unfixable = [
+  # Don't touch unused imports
+  "F401",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["arkestra"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"test/**/*" = ["PLR2004", "S101", "TID252"]
+
+[tool.coverage.run]
+source_pkgs = ["arkestra", "test"]
+branch = true
+parallel = true
+omit = [
+  "pylib/__about__.py",
+]
+
+[tool.coverage.paths]
+arkestra = ["pylib", "*/pylib"]
+test = ["test", "*/test"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
