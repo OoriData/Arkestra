@@ -31,14 +31,9 @@ and prefix each command with `op run --env-file=.env -- ` , e.g.
 `op run --env-file=.env -- python demo/simple_ogbujipt_pg_rag1.py prep`
 '''
 import os
-# import sys
-# import asyncio
-# import gzip
-# import json
 import logging
 from pathlib import Path
 
-# import httpx
 import fire
 from sentence_transformers import SentenceTransformer  # May take a long time, the first time
 from docx2python import docx2python
@@ -59,27 +54,6 @@ DB_PARAMS = {
     'password': os.environ.get('PG_PASSWORD'),
     'db_name': os.environ.get('PG_DB_NAME', 'demo_db')
 }
-
-RETRIEVAL_SCORE_THRESHOLD = 0.6
-
-# schema is late bound in the template to simplify handling of all the JSON curly braces
-OVERALL_RELEVANCE_SCORE_PROMPT = '''\
-We are trying to license a patent to companies who develop therapies for HIV (AIDS)
-Please help determine whether this passage of text is relevant to determining whether {company} is a suitable customer for our patent. Does it suggest that they are pursuing development of such therapies?
-Does it suggest that they have a history of partnerships to develop such therapies? Does it suggest that they leverage sublicensing agreements to expand their reach and impact?
-Please score the relevance of this passage to these questions, on a scale from 1 to 10. Your response should be strictly in JSON, according to the following schema:
-
-=== BEGIN PASSAGE
-{{passage}}
-=== END PASSAGE
-
-Please remember to respond strictly in JSON, according to the following schema:
-```
-{{schema}}
-```
-'''
-
-OVERALL_RELEVANCE_RESPONSE_SCHEMA = {'type': 'object', 'properties': {'score': {'type': 'number'}}}
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
