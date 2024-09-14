@@ -91,7 +91,7 @@ async def index(sources: str):
 
 
 async def query(prompt: str, retrieved_k: int = 4, llm_api_base: str = 'http://localhost:8000', sys_prompt: str=''):
-    '''Make a RAG query'''
+    '''Handle a RAG query'''
     rag_db = await DataDB.from_conn_params(**DB_PARAMS)
     llm = struct_mlx_chat_api(base_url=llm_api_base)
     if not sys_prompt:
@@ -119,7 +119,7 @@ async def clear():
 
 
 async def prep():
-    '''sources - Path to directory full of materials to index'''
+    '''Initialize PG with PGVector'''
     rag_db = await DataDB.from_conn_params(**DB_PARAMS)
     await rag_db.create_table()
     logger.info('Database table setup complete')
