@@ -42,7 +42,7 @@ def load_loom(fpath, relobj=None):
 
 
 @dataclass
-class Base64Image:
+class base_64_image:
     '''Base64 encoded image data'''
     # TODO: Override for full MIME types
     type: str
