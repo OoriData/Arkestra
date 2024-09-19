@@ -25,6 +25,7 @@ classifiers = [
 ]
 dependencies = [
   "ogbujipt",
+  "pathvalidate"
 ]
 
 [project.urls]
