@@ -25,7 +25,7 @@ except ImportError:
 HTTP_OK = 200
 
 
-async def load_page_aiohttp(url: str, acceptable_http_codes=None, user_agent=None, header_overrides=None) -> str:
+async def load_page_aiohttp(url: str, acceptable_http_codes=None, user_agent=None, header_overrides=None, session=None) -> str:
     '''
     Basic single web page loader, using browser engine to support dynamic DOM features
 
@@ -35,6 +35,11 @@ async def load_page_aiohttp(url: str, acceptable_http_codes=None, user_agent=Non
     if aiohttp is None:
         raise ImportError(
             'Requires aiohttp. Possible fix: `pip install aiohttp`')
+
+    if session:
+        async with session.get(url, headers=header_overrides) as resp:
+            content = await resp.read()
+        return content
 
     # TODO: Session reuse, HTTP error handling, alternate headers, etc.
     async with aiohttp.ClientSession() as session:
@@ -94,3 +99,26 @@ async def load_page_markdown(url: str, acceptable_http_codes=None, user_agent=No
                               header_overrides=header_overrides)
     md_content = md(content)
     return md_content
+
+
+from selectolax.parser import HTMLParser
+def chunk_by_anchor(html_text):
+    tree = HTMLParser(html_text)
+    chunks = {}
+    curr_chunk_acc = []
+    key = '!head'
+    for node in tree.root.traverse(include_text=True):
+        if node.tag == '-text':
+            text = node.text(deep=True)
+            if text: curr_chunk_acc.append(text)
+        elif node.tag == 'a' and node.attributes.get('name'):
+            name = node.attributes.get('name')
+            chunk = ''.join(curr_chunk_acc)
+            curr_chunk_acc = []
+            print('Found section: name:', name, 'length:', len(chunk))
+            chunks[key] = chunk
+            key = name
+
+    # Handle final chunk
+    chunks[key] = ''.join(curr_chunk_acc)
+    return chunks
