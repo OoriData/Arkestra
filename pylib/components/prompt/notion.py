@@ -77,7 +77,7 @@ async def pages(db_id, notion_token, limit=None):
     Retrieve & yield all DB pages, or up to the limit, if given
 
     >>> from arkestra.components.prompt.notion import pages
-    >>> async for p in pages(DB_ID, headers):
+    >>> async for p in pages(DB_ID, TOKEN):
     ...     print(p)
     ...     break
     '''

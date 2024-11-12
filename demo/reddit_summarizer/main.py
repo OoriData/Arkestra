@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 # Need this crap to avoid self-signed cert errors (really annoying, BTW!)
 ssl_ctx = ssl.create_default_context(cafile=os.environ.get('CERT_FILE'))
 
-async def summarize_hot(subreddit: str):
+async def summarize_host(subreddit: str):
     '''
     sources - Path (in string form) to directory full of materials to index
     '''
@@ -95,5 +95,5 @@ async def summarize_hot(subreddit: str):
 
 if __name__ == '__main__':
     fire.Fire({
-        'summarize_hot': summarize_hot
+        'summarize_hot': summarize_host
     })
