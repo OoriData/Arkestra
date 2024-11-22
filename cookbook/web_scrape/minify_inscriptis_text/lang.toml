@@ -1,0 +1,15 @@
+# Word loom format. Top level lang is default for this file
+lang = "en"
+
+# Language item, looked up in the code as e.g. `loom['']`
+[product_extract]
+_ = """As best you can, extract the product name, product link, image link and price for all the products given in the below webpage.
+
+### BEGIN Web page text
+{webpage_text}
+### END Web page text
+
+If you can't figure out any field for an item just fill it in as `[UNKNOWN]`
+
+Respond using JSON according to: #!JSON_SCHEMA!#'
+"""

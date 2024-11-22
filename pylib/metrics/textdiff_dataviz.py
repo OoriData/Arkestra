@@ -4,25 +4,18 @@
 # arkestra.metrics.textdiff_dataviz
 '''
 Tools for metrics (AKA evaluations) for data & GenAI pipelines ops
+
+3 visualization methods implemented, each with its own advantages:
+- Heatmap provides a clear overview of all similarities at once
+- HTML table is interactive and can be shared easily
+- Plotly 3D visualization allows for interactive exploration of the relationships
 '''
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-
-# 3 visualization methods implemented, each with its own advantages:
-# - Heatmap provides a clear overview of all similarities at once
-# - HTML table is interactive and can be shared easily
-# - Plotly 3D visualization allows for interactive exploration of the relationships
-
-
-# XXX: Move to Utiloori
-def truncate_text(text, max_start=50, max_end=50):
-    '''Show beginning and end of text with ellipsis in middle if too long.'''
-    if len(text) <= max_start + max_end + 3:
-        return text
-    return f'{text[:max_start]}...{text[-max_end:]}'
+from utiloori.plaintext import truncate_text_middle
 
 
 def similarities_heatmap(reftexts, target_texts, similarities, model_name):
@@ -79,7 +72,7 @@ def html_table_viz(reftexts, target_texts, similarities_dict):
         html += '</tr>'
 
         for j, target in enumerate(target_texts):
-            truncated = truncate_text(target)
+            truncated = truncate_text_middle(target)
             html += f"<th>Target {j+1}: {truncated}</th>"
         html += "</tr>"
 
