@@ -48,3 +48,7 @@ Fully articulated, the output schema sections would look like:
 ```
 
 But we don't support string format specifiers or patterns (and that would be a fair stretch)
+
+See also:
+
+* Tools such as [Scrapergraph](https://github.com/ScrapeGraphAI/Scrapegraph-ai)

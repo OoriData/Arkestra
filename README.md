@@ -11,3 +11,7 @@ We'll use the demos directory for a cookbook. Elements to incorporate:
 
 * [Uritemplate](https://pypi.org/project/uritemplate/)—Implementation of RFC 6570 URI Templates
 
+
+# Nearby projects
+
+* [KinOS - AI Team Orchestration System](https://github.com/DigitalKin-ai/kinos)

@@ -1,3 +1,4 @@
+# cookbook/web_scrape/minify_inscriptis_text/main.py
 import sys
 import fire
 import traceback
