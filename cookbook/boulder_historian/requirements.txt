@@ -1,0 +1,17 @@
+fire
+
+sentence-transformers
+pandas
+openai
+tiktoken
+crawl4ai
+
+seaborn
+matplotlib
+pandas
+plotly
+numpy
+
+# git+https://github.com/OoriData/Arkestra
+git+https://github.com/OoriData/OgbujiPT
+git+https://github.com/OoriData/Utiloori
