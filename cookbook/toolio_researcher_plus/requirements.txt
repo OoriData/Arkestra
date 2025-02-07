@@ -1,0 +1,8 @@
+trafilatura  # HTML to Markdown
+fire  # CLI tool - https://github.com/google/python-fire
+rich  # CLI tool -
+httpx # HTTP client
+# utiloori # Assorted utilities
+# joblib # For caching
+markdown
+toolio @ git+https://github.com/OoriData/Toolio@33-re-integrate-mlxlm
