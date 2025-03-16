@@ -1,0 +1,4 @@
+httpx
+litestar[jinja]
+pydantic
+selectolax

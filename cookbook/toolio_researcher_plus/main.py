@@ -56,7 +56,7 @@ SEARXNG_ENDPOINT = os.getenv('SEARXNG_ENDPOINT', 'http://localhost:8888/search')
 RESULTS_PER_QUERY = 3  # Number of results to process per search
 MAX_STEPS = 10  # Maximum steps before forcing termination
 MIN_STEPS = 2  # Minimum steps before allowing early termination
-DEFAULT_TRACE_FILE = 'tee_seek_trace.json'
+DEFAULT_TRACE_FILE = 'researcher_trace.json'
 
 # MODEL_DEFAULT = 'mlx-community/deepseek-r1-distill-qwen-1.5b-4bit'
 # MODEL_DEFAULT = 'mlx-community/deepseek-r1-distill-qwen-1.5b'  # Think this is the same as mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-bf16
@@ -253,13 +253,13 @@ async def searxng_search(query, progress=None):
             try:
                 if progress:
                     progress.update(search_task, description=f"[blue]Fetching ({idx + 1}/{RESULTS_PER_QUERY}): {r['url'][:50]}...")
-                
+
                 content_resp = await client.get(r['url'])
                 content = content_resp.text
-                
+
                 # Process the content
                 processed_content = await processor.process_content(content, r['url'])
-                
+
                 processed.append({
                     'title': r['title'],
                     'url': r['url'],
@@ -268,7 +268,7 @@ async def searxng_search(query, progress=None):
 
                 if progress:
                     progress.update(search_task, advance=1)
-                    
+
             except Exception as e:
                 logging.warning(f'Error fetching {r["url"]}: {e}')
                 console.print(f"[red]Error fetching {r['url']}: {e}")
@@ -287,6 +287,8 @@ class tee_seeker:
 
     async def research(self, query, rigor=0.5):
         '''Main research loop with progress tracking'''
+        console.print(f"\n[bold cyan]Starting research on:[/] {query}\n")
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -301,10 +303,16 @@ class tee_seeker:
                                 sysprompt=PLAN_SYSPROMPT, 
                                 max_tokens=2048)
             progress.update(plan_task, completed=True)
-            
+
             plan = json.loads(plan)
             self._trace('plan', plan)
-            
+
+            # Print the plan
+            console.print("\n[bold green]Research Plan:[/]")
+            for idx, step in enumerate(plan['research_steps'], 1):
+                console.print(f"[cyan]{idx}.[/] {step['purpose']}")
+            console.print(f"\n[bold green]Goal:[/] {plan['goal']}\n")
+
             # Create overall progress bar
             total_steps = len(plan['research_steps'])
             research_task = progress.add_task(
@@ -315,16 +323,22 @@ class tee_seeker:
             completed_steps = 0
             findings = []
 
-            for step in plan['research_steps']:
+            for step_num, step in enumerate(plan['research_steps'], 1):
                 if completed_steps >= MAX_STEPS:
                     break
 
-                progress.update(research_task, description=f"[green]Step {completed_steps + 1}/{total_steps}: {step['purpose']}")
+                console.print(f"\n[bold cyan]Step {step_num}/{total_steps}:[/] {step['purpose']}")
+                progress.update(research_task, description=f"[green]Executing step {step_num}/{total_steps}")
                 self._trace('step_start', step)
 
                 if step['step_type'] == 'web_search':
                     results = await searxng_search(step['query'], progress=progress)
                     self._trace('search_results', results)
+
+                    # Print found URLs
+                    console.print("\n[dim]Sources found:[/]")
+                    for r in results:
+                        console.print(f"[dim]• {r['title']} - {r['url']}[/]")
 
                     analysis = await self.llm(
                         f'Analyze these search results. Keep it succinct, with just 3-5 main takeaways:\n{json.dumps(results)}',
@@ -334,25 +348,39 @@ class tee_seeker:
                     analysis = json.loads(analysis)
                     self._trace('analysis', analysis)
 
+                    # Print key findings from this step
+                    console.print("\n[bold green]Key findings from this step:[/]")
+                    for finding in analysis['key_findings']:
+                        console.print(f"• {finding}")
+                    console.print()  # Add spacing
+
                     findings.extend(analysis['key_findings'])
 
                     if (completed_steps >= MIN_STEPS and 
                         analysis['research_complete'] and
                         rigor < 0.8):
+                        console.print("[yellow]Research goals met early - proceeding to synthesis[/]\n")
                         break
 
                 completed_steps += 1
                 progress.update(research_task, advance=1)
 
             # Final synthesis
-            synthesis_task = progress.add_task("[cyan]Synthesizing findings...", total=None)
+            console.print("\n[bold cyan]Synthesizing final results...[/]")
+            synthesis_task = progress.add_task("[cyan]Creating final report...", total=None)
             summary = await self.llm(
                 f'Synthesize this research in a report for me:\n{json.dumps(findings)}',
                 max_tokens=8192
             )
             progress.update(synthesis_task, completed=True)
-            
+
             self._trace('summary', summary)
+
+            console.print("\n[bold green]Final Research Report:[/]")
+            console.print("=" * 80)
+            console.print(summary)
+            console.print("=" * 80 + "\n")
+
             return summary
 
     def _trace(self, step_type, data):
