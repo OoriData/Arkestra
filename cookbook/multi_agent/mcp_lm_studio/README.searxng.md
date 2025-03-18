@@ -45,6 +45,25 @@ LM_STUDIO_ENDPOINT=qwen2.5-14b-instruct-1m
 python searxng_mcp_client.py
 ```
 
+Make syre your chosen port is free, e.g.
+
+netstat -tuln | grep :8000
+
+# In one terminal:
+python searxng_mcp_server.py
+
+# In another terminal:
+curl -X POST -d '{
+  "jsonrpc": "2.0",
+  "method": "search",
+  "params": {
+    "query": "test",
+    "category": "general",
+    "language": "en"
+  }
+}' http://localhost:8000
+
+
 # Sample queries
 
-Who just won the Carabao League cup final? Was there any history to the result?
+Who scored the most recent goal for Arsenal Women's Football Club?
