@@ -62,15 +62,15 @@ if assistant_message.tool_calls:
         # Get function name and arguments
         function_name = tool_call.function.name
         function_args = json.loads(tool_call.function.arguments)
-        
+
         print(f'\nTool call requested: {function_name}')
         print(f'Arguments: {function_args}')
-        
+
         # Execute MCP server call via subprocess
         if function_name == 'get-forecast':
             # We'll use the server directly via subprocess
             cmd = ['python', 'fake_mcp_server.py']
-            
+
             # Create stdin data in MCP format
             stdin_data = {
                 'type': 'invoke',
@@ -78,7 +78,7 @@ if assistant_message.tool_calls:
                 'name': function_name,
                 'input': function_args
             }
-            
+
             # Call the MCP server
             process = subprocess.Popen(
                 cmd,
@@ -87,10 +87,10 @@ if assistant_message.tool_calls:
                 stderr=subprocess.PIPE,
                 text=True
             )
-            
+
             stdout, stderr = process.communicate(json.dumps(stdin_data) + '\n')
             print(f'Server stderr: {stderr.strip()}')
-            
+
             try:
                 result = json.loads(stdout)
                 tool_result = result.get('output', 'No output returned')
@@ -98,7 +98,7 @@ if assistant_message.tool_calls:
                 tool_result = f'Error parsing server response: {stdout}'
         else:
             tool_result = f'Unknown function: {function_name}'
-        
+
         # Add tool response to messages
         messages.append({
             'role': 'tool',
@@ -112,7 +112,7 @@ if assistant_message.tool_calls:
         model=LM_STUDIO_MODEL,
         messages=messages
     )
-    
+
     print('\nFinal response after tool use:')
     print(final_response.choices[0].message.content)
 else:
