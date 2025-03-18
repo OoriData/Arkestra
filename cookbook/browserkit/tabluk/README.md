@@ -34,6 +34,10 @@ python -m litestar run -p 5678
 
 Useful litestar args include `--debug` and `--reload`.
 
+# Motivation
+
+So yes, I struggle to tame my browser tabs. I know there are all sorts of solutions out here, including [tab management Chrome extensions](https://maxfoc.us/blog/best-tab-management-extensions/)—yes, I still use Chrome, and might have switched to Arc, except that it got abandoned while there were still a lot of things I found finicky about it. Even if I do try a [new browser](https://www.zdnet.com/home-and-office/work-life/my-5-favorite-web-browsers-and-why-you-should-use-them/), such as [Zen](https://www.zdnet.com/home-and-office/work-life/zen-browser-is-the-customizable-firefox-ive-been-waiting-for/), I'll want a tab management option that's not browser-specific.
+
 # Note re page titles
 
 We try to use the app's JavaScript layer to grab titles of added pages, but there are constraints when dealing with authenticated content and cross-origin requests
