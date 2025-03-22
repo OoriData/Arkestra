@@ -53,3 +53,7 @@ We do our best with a a tiered approach:
 * If both fail, use the domain name as title
 
 An eventual solution would be a browser extension which can access page content regardless of CORS, and can use the user's actual authentication state.
+
+# Other notes
+
+favicon generated with https://favicon.iox (from wheel of dharma emoji)

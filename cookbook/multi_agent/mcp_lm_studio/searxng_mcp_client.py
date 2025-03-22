@@ -7,9 +7,10 @@ from openai import OpenAI
 import time
 import sys
 import structlog
+import io
 from config import SEARXNG_ENDPOINT, LM_STUDIO_ENDPOINT, LM_STUDIO_MODEL
 
-MPC_SERVER_TIMEOUT = 20.0  # Seconds
+MPC_SERVER_TIMEOUT = 30.0  # Increased timeout for server operations
 
 # Configure structlog
 structlog.configure(
@@ -26,23 +27,30 @@ def start_mcp_server():
     '''Start the MCP server as a subprocess.'''
     log.info('Starting MCP server')
     try:
+        # Start the process with binary mode (text=False)
         process = subprocess.Popen(
             [sys.executable, 'searxng_mcp_server.py'],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            text=False,  # Use binary mode
             bufsize=1
         )
 
-        # Wait for the server to signal it's ready
-        for line in process.stderr:
-            if line.strip() == 'READY':
-                break
-            print(f'Server: {line.strip()}')  # Echo server startup messages
+        # Create a separate thread to monitor stderr and log/print server messages
+        def monitor_stderr():
+            for line in io.TextIOWrapper(process.stderr, encoding='utf-8'):
+                line = line.strip()
+                if line:
+                    log.info('Server stderr', message=line)
+                    print(f'Server: {line}')
+
+        stderr_thread = asyncio.create_task(asyncio.to_thread(monitor_stderr))
+
+        time.sleep(3)  # Give the server time to start up
 
         if process.poll() is not None:
-            stderr = process.stderr.read()
+            stderr = process.stderr.read() if process.stderr else 'No stderr output'
             log.error('MCP server failed to start',
                     returncode=process.returncode,
                     stderr=stderr)
@@ -54,44 +62,74 @@ def start_mcp_server():
         log.exception('Error starting MCP server', error=str(e))
         raise
 
-async def read_mcp_response(mcp_process):
-    '''Read response from MCP server with improved error handling.'''
-    response_str = await asyncio.wait_for(
-        asyncio.to_thread(mcp_process.stdout.readline),
-        timeout=MPC_SERVER_TIMEOUT
-    )
+async def read_mcp_response(process):
+    '''Read response from MCP server'''
+    response = {'stdout': '', 'stderr': ''}
 
-    # Debug the raw response
-    if not response_str:
-        log.error('Empty response from MCP server')
-        # Check if server is still running
-        if mcp_process.poll() is not None:
-            stderr = mcp_process.stderr.read()
-            log.error('MCP server has terminated', 
-                    returncode=mcp_process.returncode,
-                    stderr=stderr)
-            raise RuntimeError(f'MCP server terminated with code {mcp_process.returncode}: {stderr}')
-        raise RuntimeError('MCP server returned empty response')
+    if process.stdout and not process.stdout.closed:
+        while True:
+            line = await process.stdout.readline()
+            if not line:
+                break
+            response['stdout'] += line.decode()
 
-    log.debug('Raw response from MCP server', raw_response=response_str.strip())
+    if process.stderr and not process.stderr.closed:  # Check if stream exists AND is open
+        stderr_content = await process.stderr.read()
+        response['stderr'] = stderr_content.decode()
 
-    # Skip lines that don't look like JSON
-    if not response_str.strip().startswith('{'):
-        log.warning('Received non-JSON output, skipping', output=response_str.strip())
-        return await read_mcp_response(mcp_process)
+    return response
 
-    return response_str
+# async def read_mcp_response(mcp_process):
+#     '''Read response from MCP server'''
+#     if mcp_process.poll() is not None:
+#         stderr = await mcp_process.stderr.read()
+#         raise RuntimeError(f'Server died: {stderr.decode(errors="replace")}')
+
+#     try:
+#         response_bytes = await asyncio.wait_for(
+#             asyncio.to_thread(mcp_process.stdout.readline),
+#             timeout=MPC_SERVER_TIMEOUT
+#         )
+#     except asyncio.TimeoutError:
+#         log.error('Timeout reading from server')
+#         raise
+
+#     # Convert bytes to string
+#     response_str = response_bytes.decode('utf-8', errors='replace') if isinstance(response_bytes, bytes) else response_bytes
+
+#     # Debug the raw response
+#     if not response_str:
+#         log.error('Empty response from MCP server')
+#         # Check if server is still running
+#         if mcp_process.poll() is not None:
+#             stderr = mcp_process.stderr.read() if mcp_process.stderr else b'No stderr output'
+#             stderr_str = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else stderr
+#             log.error('MCP server has terminated', 
+#                     returncode=mcp_process.returncode,
+#                     stderr=stderr_str)
+#             raise RuntimeError(f'MCP server terminated with code {mcp_process.returncode}: {stderr_str}')
+#         raise RuntimeError('MCP server returned empty response')
+
+#     log.debug('Raw response from MCP server', raw_response=response_str.strip())
+
+#     # Skip lines that don't look like JSON
+#     if not response_str.strip().startswith('{'):
+#         log.warning('Received non-JSON output, skipping', output=response_str.strip())
+#         return await read_mcp_response(mcp_process)
+
+#     return response_str
 
 async def send_to_mcp(mcp_process, method, params=None, request_id=1):
     '''Send a request to the MCP server and get the response.'''
     log = structlog.get_logger()
 
     if mcp_process.poll() is not None:
-        stderr = mcp_process.stderr.read()
+        stderr = mcp_process.stderr.read() if mcp_process.stderr else b'No stderr output'
+        stderr_str = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else stderr
         log.error('MCP server process has terminated',
                 returncode=mcp_process.returncode,
-                stderr=stderr)
-        raise RuntimeError(f'MCP server process terminated with code {mcp_process.returncode}: {stderr}')
+                stderr=stderr_str)
+        raise RuntimeError(f'MCP server process terminated with code {mcp_process.returncode}: {stderr_str}')
 
     request = {
         'jsonrpc': '2.0',
@@ -100,12 +138,12 @@ async def send_to_mcp(mcp_process, method, params=None, request_id=1):
         'params': params or {}
     }
 
-    request_str = json.dumps(request) + '\n'
+    request_bytes = (json.dumps(request) + '\n').encode('utf-8')
     log.debug('Sending request to MCP server', request=request)
 
     try:
-        # Write the request
-        mcp_process.stdin.write(request_str)
+        # Write the request as bytes
+        mcp_process.stdin.write(request_bytes)
         mcp_process.stdin.flush()
 
         # Read the response
@@ -121,8 +159,9 @@ async def send_to_mcp(mcp_process, method, params=None, request_id=1):
                     raw_response=response_str)
             # Check if there's error output
             if mcp_process.poll() is not None:
-                stderr = mcp_process.stderr.read()
-                log.error('Server stderr', stderr=stderr)
+                stderr = mcp_process.stderr.read() if mcp_process.stderr else b'No stderr output'
+                stderr_str = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else stderr
+                log.error('Server stderr', stderr=stderr_str)
             raise RuntimeError(f'Invalid JSON response: {response_str}')
 
     except asyncio.TimeoutError:
@@ -134,16 +173,17 @@ async def send_to_mcp(mcp_process, method, params=None, request_id=1):
         raise
 
 async def initialize_mcp(mcp_process):
-    '''Initialize the MCP connection.'''
+    '''Initialize the MCP connection following the correct protocol.'''
     log.info('Initializing MCP connection')
 
     # Check if the server is still running
     if mcp_process.poll() is not None:
-        stderr = mcp_process.stderr.read()
+        stderr = mcp_process.stderr.read() if mcp_process.stderr else b'No stderr output'
+        stderr_str = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else stderr
         log.error('MCP server has terminated before initialization', 
                 returncode=mcp_process.returncode,
-                stderr=stderr)
-        raise RuntimeError(f'MCP server terminated with code {mcp_process.returncode}: {stderr}')
+                stderr=stderr_str)
+        raise RuntimeError(f'MCP server terminated with code {mcp_process.returncode}: {stderr_str}')
 
     # Prepare initialization parameters
     params = {
@@ -155,14 +195,30 @@ async def initialize_mcp(mcp_process):
         }
     }
 
-    # Send initialization request
-    response = await send_to_mcp(mcp_process, 'initialize', params)
-    if 'error' in response:
-        log.error('MCP initialization failed', error=response['error'])
-        raise RuntimeError(f'MCP initialization failed: {response['error']}')
+    # Send initialization request and wait for response
+    try:
+        response = await send_to_mcp(mcp_process, 'initialize', params)
 
-    log.info('MCP connection initialized successfully')
-    return response
+        if 'error' in response:
+            log.error('MCP initialization failed', error=response['error'])
+            raise RuntimeError(f'MCP initialization failed: {response['error']}')
+
+        # Important: Send initialized notification (required by MCP protocol)
+        init_notification = {
+            'jsonrpc': '2.0',
+            'method': 'initialized',
+            'params': {}
+        }
+
+        init_notification_bytes = (json.dumps(init_notification) + '\n').encode('utf-8')
+        mcp_process.stdin.write(init_notification_bytes)
+        mcp_process.stdin.flush()
+
+        log.info('MCP connection initialized successfully')
+        return response
+    except Exception as e:
+        log.exception('Error during MCP initialization', error=str(e))
+        raise
 
 async def handle_ping(mcp_process):
     '''Send a ping to the MCP server.'''
@@ -216,7 +272,7 @@ async def process_tool_calls(tool_calls, mcp_process):
     results = []
 
     if mcp_process.poll() is not None:
-        stderr = mcp_process.stderr.read()
+        stderr = mcp_process.stderr.read() if mcp_process.stderr else 'No stderr output'
         log.error('MCP server has terminated',
                 returncode=mcp_process.returncode,
                 stderr=stderr)
@@ -309,7 +365,7 @@ async def main():
     ping_task = None
 
     try:
-        # Initialize the MCP connection
+        # Initialize the MCP connection with proper protocol sequence
         print('Initializing MCP connection...')
         await initialize_mcp(mcp_process)
         print('MCP connection initialized successfully')

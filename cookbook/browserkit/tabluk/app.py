@@ -1,9 +1,10 @@
-# app.py
+# cookbook/browserkit/tabluk/app.py
 from litestar import Litestar, get, post, put, delete
-# from litestar.static_files import StaticFilesConfig
+from litestar.static_files import StaticFilesConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.response import Template
 from litestar.template.config import TemplateConfig
+from litestar.static_files import create_static_files_router
 
 from selectolax.parser import HTMLParser
 # import asyncio
@@ -30,7 +31,7 @@ if not tab_groups_file.exists():
     with open(tab_groups_file, 'w') as f:
         json.dump({}, f)
 
-# I'd normally avoid Pydantic, but fo rthis vibe-codey thing, OK
+# I'd normally avoid Pydantic, but for this vibe-codey thing, OK—Uche
 class TabLink(BaseModel):
     id: str
     url: str
@@ -51,9 +52,10 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
-# Helper functions
+# ━━━━━━ ⬇ Helper functions ⬇ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 async def get_page_title(url: str) -> str:
-    """Fetch the actual title of a webpage using selectolax."""
+    '''Fetch the actual title of a webpage using selectolax.'''
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(url, follow_redirects=True)
@@ -63,7 +65,7 @@ async def get_page_title(url: str) -> str:
                     print(f'GRIPPO!! {title_tag.text()}')
                     return title_tag.text().strip()
     except Exception as e:
-        print(f"Error fetching title for {url}: {e}")
+        print(f'Error fetching title for {url}: {e}')
 
     # Fall back to hostname if we can't get the title
     from urllib.parse import urlparse
@@ -88,7 +90,7 @@ def save_tab_groups(groups: Dict[str, TabGroup]):
 
 @get('/')
 async def index() -> Template:
-    return Template(template_name="index.html", context={})
+    return Template(template_name='index.html', context={})
 
 @get('/api/groups')
 async def get_groups() -> Dict[str, TabGroup]:
@@ -162,7 +164,7 @@ async def launch_group(group_id: str) -> dict:
     if group_id in groups:
         for link in groups[group_id].links:
             webbrowser.open_new_tab(link.url)
-        return {'status': 'success', 'message': f'Launched {len(groups[group_id]["links"])} tabs'}
+        return {'status': 'success', 'message': f'Launched {len(groups[group_id]['links'])} tabs'}
     return {'status': 'error', 'message': 'Group not found'}
 
 @post('/api/chat')
@@ -188,16 +190,14 @@ async def chat(data: ChatRequest) -> ChatResponse:
     except Exception as e:
         return ChatResponse(response=f'Error: {str(e)}')
 
+STATIC_DIR = Path('static')
+
+
 app = Litestar(
     route_handlers=[
         index, get_groups, create_group, update_group, delete_group,
-        add_link, delete_link, launch_group, chat
+        add_link, delete_link, launch_group, chat,
+        create_static_files_router(path="/static", directories=[STATIC_DIR])
     ],
-    # static_files=[
-    #     StaticFilesConfig(directories=['static'], path='/static')
-    # ],
     template_config=TemplateConfig(directory='templates', engine=JinjaTemplateEngine),
-    # template_config=TemplateConfig(
-    #     directory='templates',
-    # )
 )
